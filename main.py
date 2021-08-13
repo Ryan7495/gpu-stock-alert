@@ -1,23 +1,35 @@
+from logging import DEBUG
 import warnings
 warnings.filterwarnings("ignore")
 
 import os, sys
 import pandas as pd
 from datetime import datetime
+from time import sleep
+from playsound import playsound
 
 from selenium import webdriver
 from selenium.common.exceptions import WebDriverException
 from selenium.webdriver.chrome.options import Options
 
+DEBUG = False
 
-keywords = 'gpu'
-CANADA_COMPUTERS_GPU_PAGE = f'https://www.canadacomputers.com/search/results_details.php?language=en&keywords={keywords}&cpath=43'
+CANADA_COMPUTERS_GPU_PAGE = f'https://www.canadacomputers.com/search/results_details.php?language=en&keywords=gpu&cpath=43'
 #CANADA_COMPUTERS_GPU_PAGE = 'https://www.canadacomputers.com/search/results_details.php?language=en&keywords=cpu'
 
 def main():
-
-    check()
-    pass
+    cycles = 0
+    while True:
+        try:
+            check()
+        except KeyboardInterrupt as e:
+            print(f'Cycles: {cycles}')
+            break
+        except:
+            pass
+    
+        cycles += 1
+        sleep(60)
 
 
 def check():
@@ -26,11 +38,16 @@ def check():
         links = get_product_links(driver, CANADA_COMPUTERS_GPU_PAGE)
 
         data = product_info(driver, links)
+        if len(data) > 0:
+            df = pd.read_csv('availability.csv', index_col=0)
+            df = df.append(data)
+            df.to_csv('availability.csv')
 
         driver.close()
 
     except KeyboardInterrupt as e:
         driver.close()
+        raise KeyboardInterrupt
 
     except WebDriverException as e:
         driver.close()
@@ -38,13 +55,11 @@ def check():
 
 def product_info(driver, links):
     columns = ['time', 'name', 'cost', 'stock', 'link']
-    #df = pd.DataFrame([], columns=columns)
-    df = pd.read_csv('availability.csv', index_col=0)
+    df = pd.DataFrame([], columns=columns)
 
     for link in links:
         try:
             driver.get(link)
-
             data = {'time':datetime.utcnow(), 'name':None, 'cost':None, 'stock':None, 'link':link}
 
             for element in driver.find_elements_by_tag_name('h1'):
@@ -54,7 +69,7 @@ def product_info(driver, links):
             
             if '3060' in data['name'] or \
                 '3070' in data['name'] or \
-                '3070' in data['name']:
+                '3070' in data['name'] or DEBUG:
                 pass
             else:
                 continue
@@ -63,7 +78,7 @@ def product_info(driver, links):
                 if element.get_attribute('class') is not None and element.get_attribute('class') == 'h2-big':
                     data['cost'] = element.find_element_by_tag_name('strong').text
                     break
-            
+
             for element in driver.find_elements_by_tag_name('p'):
                 if element.get_attribute('class') is not None and \
                     element.get_attribute('id') is not None and \
@@ -79,13 +94,14 @@ def product_info(driver, links):
                     break
 
             if data['stock']:
+                print(f"{data['time']}, {data['cost']}, {data['link']}")
+                for _ in range(5):
+                    playsound(f'sounds/glass_ping.mp3')
                 df = df.append(data, ignore_index=True)
 
         except Exception as e:
             print(link, e)
             pass
-        
-        df.to_csv('availability.csv')
 
     return df
 
