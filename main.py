@@ -25,10 +25,14 @@ def main():
         except KeyboardInterrupt as e:
             print(f'Cycles: {cycles}')
             break
-        except:
+        except Exception as e:
+            print(f'Cycles: {cycles}')
+            print(datetime.utcnow(), e)
             pass
     
         cycles += 1
+        if cycles % 100 == 0:
+            print(f'Cycles: {cycles}')
         sleep(60)
 
 
@@ -49,8 +53,9 @@ def check():
         driver.close()
         raise KeyboardInterrupt
 
-    except WebDriverException as e:
+    except:
         driver.close()
+        raise Exception
 
 
 def product_info(driver, links):
@@ -94,10 +99,13 @@ def product_info(driver, links):
                     break
 
             if data['stock']:
-                print(f"{data['time']}, {data['cost']}, {data['link']}")
-                for _ in range(5):
-                    playsound(f'sounds/glass_ping.mp3')
-                df = df.append(data, ignore_index=True)
+                df2 = pd.read_csv('availability.csv', index_col=0)
+                if data['link'][80] not in df2['link'].values:
+                    print(f"{data['time']}, {data['cost']}, {data['link']}")
+                    for _ in range(5):
+                        playsound(f'sounds/glass_ping.mp3')
+                    df = df.append(data, ignore_index=True)
+                    
 
         except Exception as e:
             print(link, e)
